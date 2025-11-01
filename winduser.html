@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoBot: Misión Eólica Urbana</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 70%, #90EE90 100%);
+            border: 4px solid #333;
+        }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 16px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 10;
+        }
+
+        #inventory {
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .piece {
+            display: inline-block;
+            margin: 5px;
+            padding: 5px 10px;
+            background: #4CAF50;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        #quiz {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 100;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        #quiz h2 {
+            color: #2196F3;
+            margin-bottom: 20px;
+        }
+
+        #quiz button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            font-size: 16px;
+            border: 2px solid #2196F3;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        #quiz button:hover {
+            background: #2196F3;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        #quiz button.correct {
+            background: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+
+        #quiz button.incorrect {
+            background: #f44336;
+            color: white;
+            border-color: #f44336;
+        }
+
+        #quiz button:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        #quizFeedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: none;
+        }
+
+        #quizFeedback.show-correct {
+            background: #4CAF50;
+            color: white;
+            display: block;
+        }
+
+        #quizFeedback.show-incorrect {
+            background: #f44336;
+            color: white;
+            display: block;
+        }
+
+        #continueBtn {
+            margin-top: 15px;
+            padding: 12px 30px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            display: none;
+        }
+
+        #continueBtn:hover {
+            background: #1976D2;
+        }
+
+        #finalMessage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 100;
+            text-align: center;
+            max-width: 600px;
+        }
+
+        #finalMessage h1 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            animation: bounce 1s infinite;
+        }
+
+        #finalMessage p {
+            font-size: 18px;
+            line-height: 1.6;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        #feedback {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            display: none;
+            z-index: 90;
+            animation: fadeOut 2s forwards;
+        }
+
+        .correct {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .incorrect {
+            background: #f44336;
+            color: white;
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div>🤖 EcoBot: Misión Eólica Urbana</div>
+        <div>⚡ Turbinas reparadas: <span id="turbinesFixed">0</span>/3</div>
+        <div id="inventory">
+            <div>📦 Inventario:</div>
+            <div id="pieces"></div>
+        </div>
+    </div>
+
+    <div id="instructions">
+        ← → Mover | ↑ Saltar | E Reparar turbina (cerca de ella con 3 piezas)
+    </div>
+
+    <canvas id="gameCanvas" width="1000" height="600"></canvas>
+
+    <div id="quiz">
+        <h2 id="quizQuestion"></h2>
+        <div id="quizOptions"></div>
+        <div id="quizFeedback"></div>
+        <button id="continueBtn">Continuar</button>
+    </div>
+
+    <div id="feedback"></div>
+
+    <div id="finalMessage">
+        <h1>¡Excelente trabajo, EcoBot! 🎉</h1>
+        <p>Has restaurado la energía limpia en toda la ciudad. 🌍💨</p>
+        <p style="margin-top: 20px;">Las turbinas eólicas que reparaste ahora generan electricidad limpia sin contaminar el ambiente. ¡Gracias a ti, la ciudad es más sostenible!</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Estado del juego
+        const game = {
+            robot: {
+                x: 50,
+                y: 450,
+                width: 40,
+                height: 50,
+                vx: 0,
+                vy: 0,
+                jumping: false,
+                speed: 5,
+                jumpPower: 15,
+                gravity: 0.8
+            },
+            keys: {},
+            inventory: {},
+            currentBuilding: null,
+            turbinesFixed: 0,
+            currentQuiz: null
+        };
+
+        // Definir edificios y turbinas
+        const buildings = [
+            { x: 50, y: 500, width: 200, height: 100, turbine: { x: 140, y: 380, fixed: false, pieces: [] } },
+            { x: 350, y: 400, width: 200, height: 200, turbine: { x: 440, y: 280, fixed: false, pieces: [] } },
+            { x: 650, y: 450, width: 250, height: 150, turbine: { x: 765, y: 330, fixed: false, pieces: [] } }
+        ];
+
+        // Piezas esparcidas por el mapa (cada una con su pregunta específica)
+        const pieces = [
+            { x: 100, y: 480, type: 'hélice', building: 0, collected: false, questionIndex: 0 },
+            { x: 180, y: 480, type: 'motor', building: 0, collected: false, questionIndex: 1 },
+            { x: 30, y: 480, type: 'base', building: 0, collected: false, questionIndex: 2 },
+            
+            { x: 400, y: 380, type: 'hélice', building: 1, collected: false, questionIndex: 3 },
+            { x: 480, y: 380, type: 'motor', building: 1, collected: false, questionIndex: 4 },
+            { x: 320, y: 380, type: 'base', building: 1, collected: false, questionIndex: 5 },
+            
+            { x: 700, y: 430, type: 'hélice', building: 2, collected: false, questionIndex: 6 },
+            { x: 800, y: 430, type: 'motor', building: 2, collected: false, questionIndex: 7 },
+            { x: 880, y: 430, type: 'base', building: 2, collected: false, questionIndex: 8 }
+        ];
+
+        // Preguntas del quiz
+        const questions = [
+            {
+                question: "¿Qué función trigonométrica se usa para calcular la radiación solar directa sobre un panel inclinado?",
+                options: ["Coseno", "Seno", "Tangente"],
+                correct: 0
+            },
+            {
+                question: "Si el sol está a 40° sobre el horizonte y un edificio proyecta una sombra de 8 m, ¿cuál es su altura?",
+                options: ["8 × tan(40°)", "8 / sin(40°)", "8 × cos(40°)"],
+                correct: 0
+            },
+            {
+                question: "¿Qué relación trigonométrica permite determinar la orientación ideal del panel hacia el sol?",
+                options: ["Seno = cateto opuesto / hipotenusa", "Tangente = cateto opuesto / cateto adyacente", "Coseno del ángulo de azimut solar"],
+                correct: 2
+            },
+            {
+                question: "Un panel solar tiene forma rectangular de 1.8 m × 1.2 m. ¿Cuál es su área total de captación solar?",
+                options: ["2.16 m²", "3.00 m²", "1.20 m²"],
+                correct: 0
+            },
+            {
+                question: "¿Por qué la geometría es importante en los sistemas de energía solar?",
+                options: ["Porque ayuda a calcular el color del panel", "Porque permite determinar áreas, ángulos y orientación", "Porque define la potencia eléctrica del sol"],
+                correct: 1
+            },
+            {
+                question: "¿Qué medida estadística se usa para conocer la radiación solar promedio en un mes?",
+                options: ["Media aritmética", "Moda", "Varianza"],
+                correct: 0
+            },
+            {
+                question: "Si se miden los kilovatios producidos cada día, ¿qué gráfico ayuda a analizar su comportamiento semanal?",
+                options: ["Gráfico de barras", "Diagrama de dispersión", "Mapa de calor"],
+                correct: 0
+            },
+            {
+                question: "¿Qué tipo de energía transforma un panel solar?",
+                options: ["Energía térmica en mecánica", "Energía solar en eléctrica", "Energía nuclear en solar"],
+                correct: 1
+            },
+            {
+                question: "¿Qué ley física explica la conversión de energía solar en electricidad en las celdas fotovoltaicas?",
+                options: ["Ley de conservación de la energía", "Ley de gravitación universal", "Ley de Coulomb"],
+                correct: 0
+            }
+        ];
+
+        let usedQuestions = [];
+        // Control del teclado
+        document.addEventListener('keydown', (e) => {
+            game.keys[e.key] = true;
+            
+            if (e.key === 'ArrowUp' && !game.robot.jumping) {
+                game.robot.vy = -game.robot.jumpPower;
+                game.robot.jumping = true;
+            }
+            
+            if (e.key === 'e' || e.key === 'E') {
+                tryRepairTurbine();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            game.keys[e.key] = false;
+        });
+
+        function update() {
+            // Movimiento horizontal
+            if (game.keys['ArrowLeft']) {
+                game.robot.vx = -game.robot.speed;
+            } else if (game.keys['ArrowRight']) {
+                game.robot.vx = game.robot.speed;
+            } else {
+                game.robot.vx = 0;
+            }
+
+            // Aplicar velocidad
+            game.robot.x += game.robot.vx;
+            game.robot.y += game.robot.vy;
+
+            // Gravedad
+            game.robot.vy += game.robot.gravity;
+
+            // Colisión con edificios
+            let onGround = false;
+            buildings.forEach(building => {
+                if (game.robot.x + game.robot.width > building.x &&
+                    game.robot.x < building.x + building.width &&
+                    game.robot.y + game.robot.height >= building.y &&
+                    game.robot.y + game.robot.height <= building.y + 20 &&
+                    game.robot.vy >= 0) {
+                    game.robot.y = building.y - game.robot.height;
+                    game.robot.vy = 0;
+                    game.robot.jumping = false;
+                    onGround = true;
+                }
+            });
+
+            // Colisión con el suelo
+            if (game.robot.y + game.robot.height >= canvas.height) {
+                game.robot.y = canvas.height - game.robot.height;
+                game.robot.vy = 0;
+                game.robot.jumping = false;
+                onGround = true;
+            }
+
+            // Límites laterales
+            if (game.robot.x < 0) game.robot.x = 0;
+            if (game.robot.x + game.robot.width > canvas.width) {
+                game.robot.x = canvas.width - game.robot.width;
+            }
+
+            // Recoger piezas (detección muy amplia)
+            pieces.forEach(piece => {
+                if (!piece.collected) {
+                    const dx = Math.abs((game.robot.x + game.robot.width / 2) - piece.x);
+                    const dy = Math.abs((game.robot.y + game.robot.height / 2) - piece.y);
+                    
+                    // Rango de detección muy amplio para facilitar la jugabilidad
+                    if (dx < 80 && dy < 80) {
+                        showQuiz(piece);
+                    }
+                }
+            });
+        }
+
+        function showQuiz(piece) {
+            const question = questions[piece.questionIndex];
+            game.currentQuiz = { question, piece };
+            
+            document.getElementById('quizQuestion').textContent = question.question;
+            const optionsDiv = document.getElementById('quizOptions');
+            optionsDiv.innerHTML = '';
+            
+            question.options.forEach((option, index) => {
+                const btn = document.createElement('button');
+                btn.textContent = option;
+                btn.setAttribute('data-answer', index);
+                btn.addEventListener('click', function() {
+                    answerQuiz(index);
+                });
+                optionsDiv.appendChild(btn);
+            });
+            
+            const feedbackDiv = document.getElementById('quizFeedback');
+            feedbackDiv.style.display = 'none';
+            feedbackDiv.className = '';
+            
+            const continueBtn = document.getElementById('continueBtn');
+            continueBtn.style.display = 'none';
+            
+            document.getElementById('quiz').style.display = 'block';
+        }
+
+        function answerQuiz(answer) {
+            if (!game.currentQuiz) return;
+            
+            const question = game.currentQuiz.question;
+            const optionsDiv = document.getElementById('quizOptions');
+            const buttons = optionsDiv.querySelectorAll('button');
+            const feedbackDiv = document.getElementById('quizFeedback');
+            const continueBtn = document.getElementById('continueBtn');
+            
+            // Deshabilitar todos los botones
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.style.pointerEvents = 'none';
+            });
+            
+            if (answer === question.correct) {
+                // Respuesta correcta
+                buttons[answer].classList.add('correct');
+                feedbackDiv.textContent = '¡Correcto! ✅ Excelente trabajo.';
+                feedbackDiv.className = 'show-correct';
+                
+                // Agregar pieza al inventario
+                const piece = game.currentQuiz.piece;
+                piece.collected = true;
+                
+                if (!game.inventory[piece.building]) {
+                    game.inventory[piece.building] = [];
+                }
+                game.inventory[piece.building].push(piece.type);
+                updateInventory();
+                
+                // Mostrar botón de continuar
+                continueBtn.style.display = 'block';
+                continueBtn.onclick = function() {
+                    document.getElementById('quiz').style.display = 'none';
+                    game.currentQuiz = null;
+                };
+            } else {
+                // Respuesta incorrecta
+                buttons[answer].classList.add('incorrect');
+                buttons[question.correct].classList.add('correct');
+                feedbackDiv.textContent = '❌ Incorrecto. La respuesta correcta es: ' + question.options[question.correct];
+                feedbackDiv.className = 'show-incorrect';
+                
+                // Permitir reintentar después de 3 segundos
+                setTimeout(() => {
+                    buttons.forEach(btn => {
+                        btn.disabled = false;
+                        btn.style.pointerEvents = 'auto';
+                        btn.classList.remove('incorrect', 'correct');
+                    });
+                    feedbackDiv.style.display = 'none';
+                    feedbackDiv.className = '';
+                }, 3000);
+            }
+        }
+
+        function updateInventory() {
+            const piecesDiv = document.getElementById('pieces');
+            piecesDiv.innerHTML = '';
+            
+            Object.keys(game.inventory).forEach(building => {
+                game.inventory[building].forEach(piece => {
+                    const span = document.createElement('span');
+                    span.className = 'piece';
+                    span.textContent = piece;
+                    piecesDiv.appendChild(span);
+                });
+            });
+        }
+
+        function tryRepairTurbine() {
+            buildings.forEach((building, index) => {
+                const turbine = building.turbine;
+                if (!turbine.fixed &&
+                    Math.abs(game.robot.x - turbine.x) < 80 &&
+                    Math.abs(game.robot.y - turbine.y) < 80 &&
+                    game.inventory[index] && game.inventory[index].length === 3) {
+                    
+                    turbine.fixed = true;
+                    game.turbinesFixed++;
+                    delete game.inventory[index];
+                    updateInventory();
+                    document.getElementById('turbinesFixed').textContent = game.turbinesFixed;
+                    
+                    if (game.turbinesFixed === 3) {
+                        setTimeout(() => {
+                            document.getElementById('finalMessage').style.display = 'block';
+                        }, 1000);
+                    }
+                }
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Nubes
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.beginPath();
+            ctx.arc(150, 80, 30, 0, Math.PI * 2);
+            ctx.arc(180, 80, 40, 0, Math.PI * 2);
+            ctx.arc(210, 80, 30, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(550, 120, 35, 0, Math.PI * 2);
+            ctx.arc(590, 120, 45, 0, Math.PI * 2);
+            ctx.arc(630, 120, 35, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Edificios
+            buildings.forEach(building => {
+                ctx.fillStyle = '#34495e';
+                ctx.fillRect(building.x, building.y, building.width, building.height);
+                
+                ctx.fillStyle = '#2c3e50';
+                for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 2; j++) {
+                        ctx.fillRect(building.x + 20 + i * 40, building.y + 20 + j * 35, 25, 25);
+                    }
+                }
+            });
+            
+            // Turbinas
+            buildings.forEach(building => {
+                const turbine = building.turbine;
+                const rotation = turbine.fixed ? Date.now() / 50 : 0;
+                
+                // Torre
+                ctx.fillStyle = '#95a5a6';
+                ctx.fillRect(turbine.x - 5, turbine.y, 10, 120);
+                
+                // Aspas
+                ctx.save();
+                ctx.translate(turbine.x, turbine.y);
+                ctx.rotate(rotation);
+                
+                ctx.fillStyle = turbine.fixed ? '#3498db' : '#7f8c8d';
+                for (let i = 0; i < 3; i++) {
+                    ctx.save();
+                    ctx.rotate((i * 2 * Math.PI) / 3);
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(-10, -60);
+                    ctx.lineTo(10, -60);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+                
+                // Centro
+                ctx.fillStyle = '#ecf0f1';
+                ctx.beginPath();
+                ctx.arc(0, 0, 12, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+                
+                // Indicador de reparación
+                if (turbine.fixed) {
+                    ctx.fillStyle = '#27ae60';
+                    ctx.font = 'bold 20px Arial';
+                    ctx.fillText('✓', turbine.x + 20, turbine.y + 10);
+                }
+            });
+            
+            // Piezas
+            pieces.forEach(piece => {
+                if (!piece.collected) {
+                    ctx.fillStyle = '#f39c12';
+                    ctx.fillRect(piece.x - 15, piece.y - 15, 30, 30);
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('⚙️', piece.x, piece.y + 5);
+                    
+                    ctx.fillStyle = '#e67e22';
+                    ctx.strokeStyle = '#d35400';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(piece.x - 15, piece.y - 15, 30, 30);
+                }
+            });
+            
+            // Robot
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(game.robot.x, game.robot.y, game.robot.width, game.robot.height);
+            
+            ctx.fillStyle = '#27ae60';
+            ctx.fillRect(game.robot.x + 5, game.robot.y + 5, 30, 15);
+            
+            ctx.fillStyle = 'white';
+            ctx.fillRect(game.robot.x + 10, game.robot.y + 10, 8, 8);
+            ctx.fillRect(game.robot.x + 22, game.robot.y + 10, 8, 8);
+            
+            ctx.fillStyle = '#34495e';
+            ctx.fillRect(game.robot.x + 5, game.robot.y + 25, 30, 20);
+            
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(game.robot.x, game.robot.y + 45, 15, 5);
+            ctx.fillRect(game.robot.x + 25, game.robot.y + 45, 15, 5);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
